@@ -1,0 +1,60 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# TensorFlow/Keras
+*.h5
+*.hdf5
+*.pb
+checkpoint
+*.ckpt
+*.ckpt.*
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+*.log
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# React
+/frontend/build
+/frontend/.env.local
+/frontend/.env.development.local
+/frontend/.env.test.local
+/frontend/.env.production.local
+
+# Model files (optional - uncomment if you don't want to track models)
+# backend/model/*.h5
+# backend/model/*.png
+
+# Dataset (don't commit large datasets)
+
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
