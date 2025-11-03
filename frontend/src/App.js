@@ -14,11 +14,48 @@ function App() {
   const [error, setError] = useState(null);
   const [dragOver1, setDragOver1] = useState(false);
   const [dragOver2, setDragOver2] = useState(false);
+  const [validating1, setValidating1] = useState(false);
+  const [validating2, setValidating2] = useState(false);
+  const [validation1, setValidation1] = useState(null);
+  const [validation2, setValidation2] = useState(null);
 
   const fileInput1Ref = useRef(null);
   const fileInput2Ref = useRef(null);
 
-  const handleFileSelect = (file, imageNumber) => {
+  const validateFaceInImage = async (file, imageNumber) => {
+    const setValidating = imageNumber === 1 ? setValidating1 : setValidating2;
+    const setValidation = imageNumber === 1 ? setValidation1 : setValidation2;
+
+    setValidating(true);
+    setValidation(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await axios.post(`${API_URL}/validate`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (response.data.valid) {
+        setValidation({ valid: true, message: 'Face detected ✓' });
+      } else {
+        setValidation({ valid: false, message: response.data.error });
+      }
+    } catch (err) {
+      console.error('Validation error:', err);
+      setValidation({ 
+        valid: false, 
+        message: err.response?.data?.error || 'Validation failed. Please try again.' 
+      });
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  const handleFileSelect = async (file, imageNumber) => {
     if (!file) return;
 
     // Validate file type
@@ -46,6 +83,9 @@ function App() {
       setResult(null);
     };
     reader.readAsDataURL(file);
+
+    // Validate face immediately
+    await validateFaceInImage(file, imageNumber);
   };
 
   const handleDragOver = (e, imageNumber) => {
@@ -82,10 +122,14 @@ function App() {
     if (imageNumber === 1) {
       setImage1(null);
       setPreview1(null);
+      setValidation1(null);
+      setValidating1(false);
       if (fileInput1Ref.current) fileInput1Ref.current.value = '';
     } else {
       setImage2(null);
       setPreview2(null);
+      setValidation2(null);
+      setValidating2(false);
       if (fileInput2Ref.current) fileInput2Ref.current.value = '';
     }
     setResult(null);
@@ -94,6 +138,12 @@ function App() {
   const handleAnalyze = async () => {
     if (!image1 || !image2) {
       setError('Please upload both images');
+      return;
+    }
+
+    // Check if both images passed validation
+    if (!validation1?.valid || !validation2?.valid) {
+      setError('Please upload valid face images before analyzing');
       return;
     }
 
@@ -124,78 +174,104 @@ function App() {
     }
   };
 
-  const ImageUploadBox = ({ imageNumber, preview, dragOver }) => (
-    <div
-      className={`relative group ${
-        dragOver ? 'scale-105' : ''
-      } transition-all duration-300`}
-      onDragOver={(e) => handleDragOver(e, imageNumber)}
-      onDragLeave={(e) => handleDragLeave(e, imageNumber)}
-      onDrop={(e) => handleDrop(e, imageNumber)}
-    >
+  const ImageUploadBox = ({ imageNumber, preview, dragOver }) => {
+    const validating = imageNumber === 1 ? validating1 : validating2;
+    const validation = imageNumber === 1 ? validation1 : validation2;
+
+    return (
       <div
-        className={`relative h-80 rounded-2xl border-2 border-dashed overflow-hidden
-          ${dragOver 
-            ? 'border-cyber-blue bg-cyber-blue/10' 
-            : 'border-cyber-blue/30 hover:border-cyber-blue/60'
-          }
-          ${preview ? 'border-solid border-cyber-blue' : ''}
-          transition-all duration-300 cursor-pointer glass glow-border`}
-        onClick={() => {
-          if (!preview) {
-            imageNumber === 1 ? fileInput1Ref.current?.click() : fileInput2Ref.current?.click();
-          }
-        }}
+        className={`relative group ${
+          dragOver ? 'scale-105' : ''
+        } transition-all duration-300`}
+        onDragOver={(e) => handleDragOver(e, imageNumber)}
+        onDragLeave={(e) => handleDragLeave(e, imageNumber)}
+        onDrop={(e) => handleDrop(e, imageNumber)}
       >
-        {preview ? (
-          <>
-            <img
-              src={preview}
-              alt={`Face ${imageNumber}`}
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRemoveImage(imageNumber);
-                }}
-                className="absolute top-4 right-4 p-2 bg-red-500/80 hover:bg-red-600 rounded-full transition-colors"
-              >
-                <X size={20} />
-              </button>
+        <div
+          className={`relative h-80 rounded-2xl border-2 border-dashed overflow-hidden
+            ${dragOver 
+              ? 'border-cyber-blue bg-cyber-blue/10' 
+              : validation?.valid 
+                ? 'border-green-500/60 hover:border-green-500'
+                : validation?.valid === false
+                  ? 'border-red-500/60 hover:border-red-500'
+                  : 'border-cyber-blue/30 hover:border-cyber-blue/60'
+            }
+            ${preview ? 'border-solid' : ''}
+            transition-all duration-300 cursor-pointer glass glow-border`}
+          onClick={() => {
+            if (!preview) {
+              imageNumber === 1 ? fileInput1Ref.current?.click() : fileInput2Ref.current?.click();
+            }
+          }}
+        >
+          {preview ? (
+            <>
+              <img
+                src={preview}
+                alt={`Face ${imageNumber}`}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRemoveImage(imageNumber);
+                  }}
+                  className="absolute top-4 right-4 p-2 bg-red-500/80 hover:bg-red-600 rounded-full transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 to-transparent">
+                {validating ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 size={16} className="animate-spin text-cyber-blue" />
+                    <p className="text-sm text-cyber-blue font-semibold">Validating face...</p>
+                  </div>
+                ) : validation?.valid ? (
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={16} className="text-green-400" />
+                    <p className="text-sm text-green-400 font-semibold">{validation.message}</p>
+                  </div>
+                ) : validation?.valid === false ? (
+                  <div className="flex items-center gap-2">
+                    <AlertCircle size={16} className="text-red-400" />
+                    <p className="text-sm text-red-400 font-semibold">{validation.message}</p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-cyber-blue font-semibold">Face {imageNumber} Uploaded</p>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+              <div className="mb-4 p-6 rounded-full bg-cyber-blue/10 group-hover:bg-cyber-blue/20 transition-colors">
+                <Upload size={48} className="text-cyber-blue animate-float" />
+              </div>
+              <h3 className="text-xl font-bold mb-2 text-white">
+                Upload Face {imageNumber}
+              </h3>
+              <p className="text-gray-400 mb-4">
+                Drag & drop or click to browse
+              </p>
+              <p className="text-xs text-gray-500">
+                Supports: JPG, PNG, JPEG (Max 5MB)
+              </p>
             </div>
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 to-transparent">
-              <p className="text-sm text-cyber-blue font-semibold">Face {imageNumber} Uploaded</p>
-            </div>
-          </>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-            <div className="mb-4 p-6 rounded-full bg-cyber-blue/10 group-hover:bg-cyber-blue/20 transition-colors">
-              <Upload size={48} className="text-cyber-blue animate-float" />
-            </div>
-            <h3 className="text-xl font-bold mb-2 text-white">
-              Upload Face {imageNumber}
-            </h3>
-            <p className="text-gray-400 mb-4">
-              Drag & drop or click to browse
-            </p>
-            <p className="text-xs text-gray-500">
-              Supports: JPG, PNG, JPEG (Max 5MB)
-            </p>
-          </div>
-        )}
+          )}
+        </div>
+        
+        <input
+          ref={imageNumber === 1 ? fileInput1Ref : fileInput2Ref}
+          type="file"
+          accept="image/*"
+          onChange={(e) => handleFileSelect(e.target.files[0], imageNumber)}
+          className="hidden"
+        />
       </div>
-      
-      <input
-        ref={imageNumber === 1 ? fileInput1Ref : fileInput2Ref}
-        type="file"
-        accept="image/*"
-        onChange={(e) => handleFileSelect(e.target.files[0], imageNumber)}
-        className="hidden"
-      />
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="min-h-screen animated-gradient">
@@ -241,7 +317,7 @@ function App() {
           <div className="text-center mb-8">
             <button
               onClick={handleAnalyze}
-              disabled={!image1 || !image2 || loading}
+              disabled={!image1 || !image2 || loading || !validation1?.valid || !validation2?.valid || validating1 || validating2}
               className={`
                 px-12 py-4 rounded-full text-lg font-bold
                 bg-gradient-to-r from-cyber-blue via-cyber-purple to-cyber-pink
@@ -257,6 +333,11 @@ function App() {
                   <>
                     <Loader2 size={24} className="animate-spin" />
                     Analyzing...
+                  </>
+                ) : validating1 || validating2 ? (
+                  <>
+                    <Loader2 size={24} className="animate-spin" />
+                    Validating faces...
                   </>
                 ) : (
                   <>

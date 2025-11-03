@@ -34,6 +34,9 @@ Flask-CORS==4.0.0           # Cross-origin resource sharing
 tqdm==4.66.1                # Progress bars
 h5py==3.10.0                # HDF5 file format (for model saving)
 
+# Face Detection & Validation
+mediapipe==0.10.9           # Accurate face detection and validation
+
 # ============================================================================
 # Installation Notes:
 # ============================================================================
